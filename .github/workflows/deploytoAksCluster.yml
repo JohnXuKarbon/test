@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: johnxucontainerregistry.azurecr.io
+        username: ${{ secrets.acr_johnxucontainerregistry_username }}
+        password: ${{ secrets.acr_johnxucontainerregistry_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/." -f  "Dockerfile" -t johnxucontainerregistry.azurecr.io/khqdevkubernetes:${{ github.sha }}
+        docker push johnxucontainerregistry.azurecr.io/khqdevkubernetes:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_khqdevkubernetes_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep khqdevkubernetes8162 | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace khqdevkubernetes8162`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: khqdevkubernetes8162
+        container-registry-url: johnxucontainerregistry.azurecr.io
+        container-registry-username: ${{ secrets.acr_johnxucontainerregistry_username }}
+        container-registry-password: ${{ secrets.acr_johnxucontainerregistry_password }}
+        secret-name: khqdevkuberndockerauth
+       
+    - uses: azure/k8s-deploy@v1
+      with:
+        namespace: khqdevkubernetes8162
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+        images: |
+          johnxucontainerregistry.azurecr.io/khqdevkubernetes:${{ github.sha }}
+        imagepullsecrets: |
+          khqdevkuberndockerauth
