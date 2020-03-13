@@ -1,0 +1,16 @@
+apiVersion : apps/v1beta1
+kind: Deployment
+metadata:
+  name: "khqdevkubernetes"
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: "khqdevkubernetes"
+    spec:
+      containers:
+        - name: "khqdevkubernetes"
+          image: "johnxucontainerregistry.azurecr.io/khqdevkubernetes"
+          ports:
+          - containerPort: 80
